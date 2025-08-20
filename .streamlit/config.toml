@@ -1,0 +1,17 @@
+# Archivo de configuración de tema para Streamlit
+
+[theme]
+# Color principal para botones y elementos interactivos (naranja de tu web)
+primaryColor="#f97316"
+
+# Color de fondo principal
+backgroundColor="#FFFFFF"
+
+# Color de fondo secundario (para barras laterales, etc.)
+secondaryBackgroundColor="#f0f2f6"
+
+# Color del texto principal
+textColor="#0f172a"
+
+# Fuente a utilizar
+font="sans serif"
