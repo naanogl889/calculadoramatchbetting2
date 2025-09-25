@@ -1,168 +1,178 @@
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Jul 29 19:25:12 2025
+
+@author: 34608
+"""
+
 import streamlit as st
-import pandas as pd
-
-# ==============================================================================
-# CONFIGURACIÓN DE LA PÁGINA Y ESTILOS
-# ==============================================================================
-st.set_page_config(page_title="Calculadora Match Betting", layout="centered")
-
-# Inyectamos la fuente 'Inter' para que coincida con tu web
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    html, body, [class*="css"] {
-       font-family: 'Inter', sans-serif;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    html, body, [class*="css"]  {
+        font-family: 'Inter', sans-serif;
     }
     </style>
 """, unsafe_allow_html=True)
 
+from calculadoramatchbetting import (
+    calcular_dinero_real,
+    calcular_freebet,
+    calcular_reembolso,
+    calcular_rollover
+)
 
-# ==============================================================================
-# FUNCIONES DE CÁLCULO (Lógica de la calculadora)
-# ==============================================================================
-
-def calcular_dinero_real(importe, cuota_a_favor, cuota_exchange, comision):
-    mejor_lay = 0
-    mejor_diferencia = float('inf')
-    mejor_ganancia_casa = 0
-    mejor_ganancia_exchange = 0
-
-    for lay in [x / 100 for x in range(1, int(importe * 200) + 1)]:
-        ganancia_casa = importe * (cuota_a_favor - 1) - lay * (cuota_exchange - 1)
-        ganancia_exchange = lay * (1 - comision) - importe
-        diferencia = abs(ganancia_casa - ganancia_exchange)
-
-        if diferencia < mejor_diferencia:
-            mejor_diferencia = diferencia
-            mejor_lay = lay
-            mejor_ganancia_casa = ganancia_casa
-            mejor_ganancia_exchange = ganancia_exchange
-
-    riesgo = mejor_lay * (cuota_exchange - 1)
-    beneficio_promedio = (mejor_ganancia_casa + mejor_ganancia_exchange) / 2
-    porcentaje_valor = 100 + (beneficio_promedio / importe) * 100
-
-    if porcentaje_valor >= 98:
-        clasificacion = "🟢 Excelente"
-    elif porcentaje_valor >= 95:
-        clasificacion = "🟢 Muy Bueno"
-    elif porcentaje_valor >= 90:
-        clasificacion = "🟠 Regular (Busca cuotas mas bajas y mas parejas)"
-    else:
-        clasificacion = "🔴 Malo (Busca cuotas mas bajas y mas parejas)"
-
-    return {
-        "tipo": "real", "importe": importe, "cuota_a_favor": cuota_a_favor,
-        "cuota_exchange": cuota_exchange, "comision": comision, "lay": mejor_lay,
-        "riesgo": riesgo, "ganancia_casa": mejor_ganancia_casa,
-        "ganancia_exchange": mejor_ganancia_exchange, "diferencia": mejor_diferencia,
-        "porcentaje_valor": porcentaje_valor, "clasificacion": clasificacion
-    }
-
-def calcular_freebet(importe, cuota_a_favor, cuota_exchange, comision):
-    mejor_lay = 0
-    mejor_diferencia = float('inf')
-    mejor_ganancia_casa = 0
-    mejor_ganancia_exchange = 0
-
-    for lay in [x / 100 for x in range(1, int(importe * 200) + 1)]:
-        ganancia_casa = (cuota_a_favor - 1) * importe - lay * (cuota_exchange - 1)
-        ganancia_exchange = lay * (1 - comision)
-        diferencia = abs(ganancia_casa - ganancia_exchange)
-
-        if diferencia < mejor_diferencia:
-            mejor_diferencia = diferencia
-            mejor_lay = lay
-            mejor_ganancia_casa = ganancia_casa
-            mejor_ganancia_exchange = ganancia_exchange
-
-    riesgo = mejor_lay * (cuota_exchange - 1)
-    beneficio_promedio = (mejor_ganancia_casa + mejor_ganancia_exchange) / 2
-    porcentaje_valor = (beneficio_promedio / importe) * 100
-
-    if porcentaje_valor >= 75:
-        clasificacion = "🟢 Excelente"
-    elif porcentaje_valor >= 70:
-        clasificacion = "🟢 Muy Bueno"
-    elif porcentaje_valor >= 65:
-        clasificacion = "🟠 Regular (Busca cuotas mas altas y mas parejas)"
-    else:
-        clasificacion = "🔴 Malo (Busca cuotas mas altas y mas parejas)"
-
-    return {
-        "tipo": "freebet", "importe": importe, "cuota_a_favor": cuota_a_favor,
-        "cuota_exchange": cuota_exchange, "comision": comision, "lay": mejor_lay,
-        "riesgo": riesgo, "ganancia_casa": mejor_ganancia_casa,
-        "ganancia_exchange": mejor_ganancia_exchange, "diferencia": mejor_diferencia,
-        "porcentaje_valor": porcentaje_valor, "clasificacion": clasificacion
-    }
-
-# ... (Las otras funciones de cálculo como `calcular_reembolso` y `calcular_rollover` irían aquí si las necesitas)
-# Por simplicidad, las he omitido, pero puedes pegarlas aquí si quieres que la calculadora las tenga.
-
-
-# ==============================================================================
-# INTERFAZ DE USUARIO (UI) DE STREAMLIT
-# ==============================================================================
-
+st.set_page_config(page_title="Calculadora Match Betting", layout="centered")
 st.title("💸 Calculadora de Match Betting")
 
+# Menú de selección del tipo de apuesta
 st.markdown("## 🎯 Selecciona el tipo de apuesta")
-tipo_apuesta = st.selectbox("📌 Tipo de apuesta:", ["Dinero Real", "Freebet"]) # He simplificado a 2 por ahora
+tipo_apuesta = st.selectbox("📌 Tipo de apuesta:", [
+    "Dinero Real", "Freebet", "Reembolso", "Rollover"
+])
 
 st.markdown("### 💸 Parámetros generales")
 
+# Agrupamos inputs en columnas para una presentación más ordenada
 col1, col2 = st.columns(2)
 with col1:
     importe = st.number_input("💰 Importe apostado (€)", min_value=1.0, value=10.0, step=1.0)
     cuota_en_contra = st.number_input("📉 Cuota en Betfair Exchange (En contra)", min_value=1.01, value=1.6, step=0.01)
-    
+   
 with col2:
     cuota_a_favor = st.number_input("📈 Cuota en casa de apuestas (A favor)", min_value=1.01, value=1.55, step=0.01)
     comision = st.number_input("🏦 Comisión del Exchange (%)", min_value=0.0, max_value=100.0, value=2.0, step=0.1) / 100
 
-st.markdown("---")
+# Mostrar parámetros adicionales según el tipo de apuesta
+if tipo_apuesta == "Reembolso":
+    with st.expander("⚙️ Parámetros específicos para apuesta con Reembolso"):
+        col1, col2 = st.columns(2)
+        with col1:
+            retencion = st.slider("🔁 Retención esperada del valor de la freebet (%)", 0.0, 1.0, 0.7, step=0.05)
+        with col2:
+            reembolso = st.number_input("💵 Monto reembolsado si pierdes (€)", min_value=0.0, value=importe, step=1.0)
 
-if st.button("🔍 Calcular apuesta óptima"):
+elif tipo_apuesta == "Rollover":
+    with st.expander("⚙️ Parámetros específicos para apuesta con Rollover"):
+        col1, col2 = st.columns(2)
+        with col1:
+            bono = st.number_input("🎁 Importe del bono (€)", min_value=1.0, value=importe, step=1.0)
+            rollover = st.number_input("🔄 Rollover total requerido (€)", min_value=1.0, value=600.0, step=10.0)
+        with col2:
+            porcentaje_retencion = st.slider("🧲 Retención estimada tras completar rollover (%)", 0.0, 1.0, 0.95, step=0.01)
+
+# Botón para calcular
+st.markdown("---")
+st.markdown("## 🚀 Pulsa para calcular tu apuesta óptima")
+
+if st.button("🔍 Calcular"):
     if tipo_apuesta == "Dinero Real":
         resultado = calcular_dinero_real(importe, cuota_a_favor, cuota_en_contra, comision)
     elif tipo_apuesta == "Freebet":
         resultado = calcular_freebet(importe, cuota_a_favor, cuota_en_contra, comision)
+    elif tipo_apuesta == "Reembolso":
+        resultado = calcular_reembolso(importe, cuota_a_favor, cuota_en_contra, comision, reembolso, retencion)
+    elif tipo_apuesta == "Rollover":
+        resultado = calcular_rollover(importe, cuota_a_favor, cuota_en_contra, comision, bono, rollover, porcentaje_retencion)
     else:
         st.error("❌ Tipo de apuesta no reconocido.")
         st.stop()
 
-    # --- Mostrar resultados visualmente ---
-    st.subheader("📊 ¿Cuánto debes apostar?")
+
+    
+    
+   # Mostrar resultados visualmente mejorados
+    st.subheader("📊 ¿Cuánto debes apostar en cada casa de apuestas?")
     
     col1, col2, col3 = st.columns([1.2, 1, 1.2])
     
     with col1:
-        st.markdown(f"""
-        <div style='background-color: #dbeafe; padding: 20px; border-radius: 15px; text-align: center; height: 100%;'>
-            <h4 style='margin-bottom: 10px;'>A Favor (Back)</h4>
-            <p style='font-size: 18px;'><strong>{resultado['importe']:.2f}€</strong> a cuota <strong>{resultado['cuota_a_favor']}</strong></p>
+        st.markdown("""
+        <div style='background-color: #dbeafe; padding: 20px; border-radius: 15px; text-align: center;'>
+            <h4 style='margin-bottom: 10px;'>A Favor</h4>
+            <p style='font-size: 18px;'><strong>{:.2f}€</strong> a cuota <strong>{}</strong></p>
         </div>
-        """, unsafe_allow_html=True)
+        """.format(resultado['importe'], resultado['cuota_a_favor']), unsafe_allow_html=True)
     
     with col2:
-        beneficio = (resultado['ganancia_casa'] + resultado['ganancia_exchange']) / 2
-        st.markdown(f"""
-        <div style='background-color: #fff7ed; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #f97316; height: 100%;'>
-            <h4 style='margin-bottom: 10px;'>Beneficio</h4>
-            <p style='font-size: 20px; color: #16a34a;'><strong>{beneficio:.2f}€</strong></p>
-            <p style='color: #555;'>Rating: {resultado['porcentaje_valor']:.2f}%</p>
+        st.markdown("""
+        <div style='background-color: #fff7ed; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid orange;'>
+            <h4 style='margin-bottom: 10px;'>Ganancia Estimada</h4>
+            <p style='font-size: 20px;'><strong>{:.2f}€</strong></p>
+            <p style='color: #555;'>Rating {:.2f}%</p>
         </div>
-        """, unsafe_allow_html=True)
+        """.format(resultado['ganancia_casa'], resultado['porcentaje_valor']), unsafe_allow_html=True)
     
     with col3:
-        st.markdown(f"""
-        <div style='background-color: #fee2e2; padding: 20px; border-radius: 15px; text-align: center; height: 100%;'>
-            <h4 style='margin-bottom: 10px;'>En Contra (Lay)</h4>
-            <p style='font-size: 18px;'><strong>{resultado['lay']:.2f}€</strong> a cuota <strong>{cuota_en_contra}</strong></p>
-            <p style='color: #444;'>Riesgo: {resultado['riesgo']:.2f}€</p>
+        st.markdown("""
+        <div style='background-color: #fee2e2; padding: 20px; border-radius: 15px; text-align: center;'>
+            <h4 style='margin-bottom: 10px;'>En Contra</h4>
+            <p style='font-size: 18px;'><strong>{:.2f}€</strong> a cuota <strong>{}</strong></p>
+            <p style='color: #444;'>Riesgo: {:.2f}€</p>
         </div>
-        """, unsafe_allow_html=True)
+        """.format(resultado['lay'], cuota_en_contra, resultado['riesgo']), unsafe_allow_html=True)
     
-    st.markdown(f"<p style='text-align: center; font-size: 18px; margin-top: 20px;'><strong>Clasificación:</strong> {resultado['clasificacion']}</p>", unsafe_allow_html=True)
+    # Clasificación textual aparte
+    st.markdown(f"<p style='text-align: center; font-size: 18px; margin-top: 20px;'>📊 <strong>Clasificación:</strong> {resultado['clasificacion']}</p>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+    # Mostrar tabla de resultados
+    # Casa de apuestas
+    if tipo_apuesta == "Freebet":
+        casa_gana = resultado['importe'] * (resultado['cuota_a_favor'] - 1)
+        casa_pierde = 0.0
+    elif tipo_apuesta == "Reembolso":
+        casa_gana = resultado['importe'] * (resultado['cuota_a_favor'] - 1)
+        valor_reembolso = reembolso * retencion
+        casa_pierde = -resultado['importe'] + valor_reembolso
+    elif tipo_apuesta == "Rollover":
+        casa_gana = resultado['ganancia_casa_real']  # incluye lo ganado + riesgo
+        casa_pierde = -resultado['importe_real']            # lo que pierdes si gana el exchange
+
+    else:  # Dinero Real
+        casa_gana = resultado['importe'] * (resultado['cuota_a_favor'] - 1)
+        casa_pierde = -resultado['importe']
+    
+    # Exchange (igual en todos)
+    exchange_gana = -resultado['riesgo']
+    exchange_pierde = resultado['lay'] * (1 - resultado['comision'])
+    
+    # Totales
+    total_gana = casa_gana + exchange_gana
+    total_pierde = casa_pierde + exchange_pierde
+
+    st.markdown("### 📊 ¿Que pasa si ganas o pierdes la apuesta?")
+    import pandas as pd
+    import streamlit as st
+    
+    # Crear DataFrame
+    data = {
+        "Resultado de la apuesta": ["✅ Si ganas en la casa", "❌ Si pierdes en la casa"],
+        "Casa de apuestas": [casa_gana, casa_pierde],
+        "Exchange": [exchange_gana, exchange_pierde],
+        "Total": [total_gana, total_pierde]
+    }
+    
+    df = pd.DataFrame(data)
+    
+    # Mostrar tabla con formato visual mejorado
+    def formato_monedas(val):
+        return f"{val:.2f} €"
+    
+    # Aplicar estilos condicionales
+    def resaltar_ganancias(val):
+        color = "green" if val >= 0 else "red"
+        return f"color: {color}; font-weight: bold"
+    
+    
+    st.dataframe(
+        df.style.format(formato_monedas, subset=["Casa de apuestas", "Exchange", "Total"])
+                 .applymap(resaltar_ganancias, subset=["Casa de apuestas", "Exchange", "Total"])
+                 .set_properties(**{'text-align': 'center'})
+                 .set_table_styles([
+                     {'selector': 'th', 'props': [('font-weight', 'bold'), ('text-align', 'center'), ('background-color', '#f0f2f6')]},
+                     {'selector': 'td', 'props': [('padding', '10px')]}
+                 ])
+    )
